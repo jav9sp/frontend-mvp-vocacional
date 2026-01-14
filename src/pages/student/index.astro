@@ -1,0 +1,9 @@
+---
+import "../../styles/global.css";
+import StudentLayout from "../../layouts/StudentLayout.astro";
+import StudentDashboard from "../../components/student/StudentDashboard.tsx";
+---
+
+<StudentLayout title="Inicio">
+  <StudentDashboard client:load />
+</StudentLayout>

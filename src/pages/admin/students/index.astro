@@ -1,0 +1,8 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import AdminStudentsList from "../../../components/admin/AdminStudentsList.tsx";
+---
+
+<AdminLayout title="Estudiantes">
+  <AdminStudentsList client:load />
+</AdminLayout>
