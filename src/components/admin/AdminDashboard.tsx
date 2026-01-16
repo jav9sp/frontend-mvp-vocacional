@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useAdminDashboard } from "../../features/admin/useAdminDashboard";
+import { useAdminDashboard } from "../../features/admin/dashboard/useAdminDashboard";
 import { formatDate } from "../../utils/utils";
 
 function statusLabel(status: string) {

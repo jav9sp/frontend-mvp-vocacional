@@ -1,4 +1,4 @@
-import type { StudentRow } from "../lib/adminPeriod";
+import type { StudentRow } from "../features/admin/period/schemas";
 
 // For Admin Period Details
 export const TOTAL_QUESTIONS = 103;

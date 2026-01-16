@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { clearAuth, getUser } from "../../lib/auth";
-import { requireAuth } from "../../lib/guards";
+import { requireAuth } from "../../../lib/guards";
+import { clearAuth, getUser } from "../../../lib/auth";
 
 export default function AdminTopbar() {
   const [name, setName] = useState("");

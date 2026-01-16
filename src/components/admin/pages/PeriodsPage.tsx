@@ -1,24 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
-import { requireAuth } from "../../lib/guards";
-import { api } from "../../lib/api";
-
-type PeriodRow = {
-  id: number;
-  name: string;
-  status: string; // ej: "active" | "closed" | etc
-  startAt: string | null;
-  endAt: string | null;
-  createdAt: string;
-  studentsCount: number;
-  finishedCount: number;
-  test?: { id: number; name?: string; key?: string; version?: string };
-};
-
-type PeriodsResp = {
-  ok: boolean;
-  organization: { id: number; name: string };
-  periods: PeriodRow[];
-};
+import { useMemo } from "react";
+import { Link } from "react-router-dom";
+import { formatDate } from "../../../utils/utils";
+import { useAdminPeriods } from "../../../features/admin/periods/useAdminPeriods";
 
 function statusLabel(status: string) {
   const s = (status || "").toLowerCase();
@@ -36,43 +19,18 @@ function statusClasses(status: string) {
   return "bg-slate-100 text-slate-700";
 }
 
-function formatDate(d: string | null | undefined) {
-  if (!d) return "—";
-  const dt = new Date(d);
-  if (Number.isNaN(dt.getTime())) return "—";
-  return dt.toLocaleDateString();
-}
+export default function PeriodsPage() {
+  const { data, isLoading, error, refetch, isFetching } = useAdminPeriods();
 
-export default function AdminPeriodsList() {
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
-
-  const [orgName, setOrgName] = useState<string>("");
-  const [periods, setPeriods] = useState<PeriodRow[]>([]);
-
-  useEffect(() => {
-    const ok = requireAuth("admin");
-    if (!ok) return;
-
-    (async () => {
-      try {
-        const resp = await api<PeriodsResp>("/admin/periods");
-        setOrgName(resp.organization?.name ?? "");
-        setPeriods(resp.periods ?? []);
-      } catch (e: any) {
-        setErr(e.message);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  const orgName = data?.organization?.name ?? "";
+  const periods = data?.periods ?? [];
 
   const countLabel = useMemo(() => {
     const n = periods.length;
     return `${n} ${n === 1 ? "periodo" : "periodos"}`;
   }, [periods.length]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="card">
         <p className="text-sm text-muted">Cargando periodos…</p>
@@ -80,10 +38,20 @@ export default function AdminPeriodsList() {
     );
   }
 
-  if (err) {
+  if (error) {
     return (
       <div className="card border-red-200">
-        <p className="text-sm text-red-600">Error: {err}</p>
+        <p className="text-sm text-red-600">
+          Error: {(error as Error).message}
+        </p>
+      </div>
+    );
+  }
+
+  if (!data?.ok) {
+    return (
+      <div className="card border-red-200">
+        <p className="text-sm text-red-600">No se pudo cargar el listado.</p>
       </div>
     );
   }
@@ -102,6 +70,12 @@ export default function AdminPeriodsList() {
         </div>
 
         <span className="text-xs text-muted">{countLabel}</span>
+        <button
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="btn btn-secondary">
+          {isFetching ? "Actualizando..." : "Actualizar"}
+        </button>
       </div>
 
       <div className="mt-3 overflow-x-auto">
@@ -168,11 +142,11 @@ export default function AdminPeriodsList() {
                   <td className="py-3 text-center">{p.finishedCount}</td>
 
                   <td className="py-3 text-center">
-                    <a
-                      href={`/admin/periods/${p.id}`}
+                    <Link
+                      to={`/admin/periods/${p.id}`}
                       className="inline-flex items-center rounded-xl border border-border px-3 py-1.5 text-sm hover:bg-slate-50">
                       Ver
-                    </a>
+                    </Link>
                   </td>
                 </tr>
               ))

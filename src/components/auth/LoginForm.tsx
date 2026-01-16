@@ -28,7 +28,8 @@ export default function LoginForm() {
       setAuth(resp.token, resp.user);
 
       // redirige por rol
-      window.location.href = resp.user.role === "admin" ? "/admin" : "/student";
+      window.location.href =
+        resp.user.role === "admin" ? "/admin/dashboard" : "/student";
     } catch (e: any) {
       setError(e.message || "Error");
     } finally {

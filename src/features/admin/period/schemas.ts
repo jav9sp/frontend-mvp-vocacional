@@ -8,7 +8,7 @@ export const SummaryRespSchema = z.object({
   period: z.object({
     id: z.number(),
     name: z.string(),
-    status: z.string(),
+    status: PeriodStatusSchema,
     startAt: z.string().nullable(),
     endAt: z.string().nullable(),
     testId: z.number(),
@@ -37,7 +37,7 @@ export const StudentRowSchema = z.object({
     id: z.number(),
     rut: z.string(),
     name: z.string(),
-    email: z.string().nullable().optional(), // por si viene null en DB
+    email: z.string().nullable().optional(),
   }),
   status: StudentStatusSchema,
   attempt: z
@@ -57,7 +57,7 @@ export const StudentsRespSchema = z.object({
   period: z.object({
     id: z.number(),
     name: z.string(),
-    status: z.string(),
+    status: PeriodStatusSchema,
     testId: z.number(),
   }),
   page: z.number(),

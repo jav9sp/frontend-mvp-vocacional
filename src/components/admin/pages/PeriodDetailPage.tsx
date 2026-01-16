@@ -1,17 +1,17 @@
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import ImportStudentsModal from "./ImportStudentsModal";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useParams } from "react-router-dom";
 
-import PeriodHeader from "./period-detail/PeriodHeader";
-import PeriodStatusActions from "./period-detail/PeriodStatusActions";
-import ExportActions from "./period-detail/ExportActions";
-import PeriodKpis from "./period-detail/PeriodKpis";
-import StudentsFilters from "./period-detail/StudentsFilters";
-import StudentsTable from "./period-detail/StudentsTable";
-import StudentsPagination from "./period-detail/StudentsPagination";
-import StateCard from "../common/StateCard";
+import PeriodHeader from "../period-detail/PeriodHeader";
+import PeriodStatusActions from "../period-detail/PeriodStatusActions";
+import ExportActions from "../period-detail/ExportActions";
+import PeriodKpis from "../period-detail/PeriodKpis";
+import StudentsFilters from "../period-detail/StudentsFilters";
+import StudentsTable from "../period-detail/StudentsTable";
+import StudentsPagination from "../period-detail/StudentsPagination";
+import ImportStudentsModal from "../ImportStudentsModal";
+import StateCard from "../../common/StateCard";
 
-import { apiDownload } from "../../lib/api";
+import { apiDownload } from "../../../lib/api";
 
 import {
   formatDate,
@@ -22,11 +22,11 @@ import {
   TOTAL_QUESTIONS,
   toUiError,
   type UiError,
-} from "../../utils/utils";
+} from "../../../utils/utils";
 
-import { useAdminPeriodSummary } from "../../features/admin/period/useAdminPeriodSummary";
-import { useAdminPeriodStudents } from "../../features/admin/period/useAdminPeriodStudents";
-import { useUpdatePeriodStatus } from "../../features/admin/period/useUpdatePeriodStatus";
+import { useAdminPeriodSummary } from "../../../features/admin/period/useAdminPeriodSummary";
+import { useAdminPeriodStudents } from "../../../features/admin/period/useAdminPeriodStudents";
+import { useUpdatePeriodStatus } from "../../../features/admin/period/useUpdatePeriodStatus";
 
 function badgeStatus(status: string) {
   const s = (status || "").toLowerCase();
@@ -38,12 +38,19 @@ function badgeStatus(status: string) {
   return `${base} bg-slate-100 text-slate-700`;
 }
 
-export default function AdminPeriodDetail({ periodId }: { periodId: string }) {
-  const pid = Number(periodId);
+export default function PeriodDetailPage() {
+  const { id } = useParams<{ id: string }>();
 
+  const parsedId = Number(id);
+  const isValidId = Number.isFinite(parsedId) && parsedId > 0;
+  const periodId = isValidId ? parsedId : 0;
+
+  // UI state
   const [uiErr, setUiErr] = useState<UiError | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [exporting, setExporting] = useState<null | "csv" | "pdf">(null);
 
-  // filtros/paginación (se quedan como UI state)
+  // Filters/pagination state
   const [page, setPage] = useState(1);
   const [pageSize] = useState(25);
   const [q, setQ] = useState("");
@@ -51,14 +58,10 @@ export default function AdminPeriodDetail({ periodId }: { periodId: string }) {
     "" | "not_started" | "in_progress" | "finished"
   >("");
   const [course, setCourse] = useState("");
-  const [importOpen, setImportOpen] = useState(false);
-  const [exporting, setExporting] = useState<null | "csv" | "pdf">(null);
 
-  // 1) summary
-  const summaryQ = useAdminPeriodSummary(pid);
-
-  // 2) students list (depende de filtros/página)
-  const studentsQ = useAdminPeriodStudents(pid, {
+  // Data hooks (si periodId=0, los hooks deben tener enabled interno y NO fetchear)
+  const summaryQ = useAdminPeriodSummary(periodId);
+  const studentsQ = useAdminPeriodStudents(periodId, {
     page,
     pageSize,
     q,
@@ -66,11 +69,43 @@ export default function AdminPeriodDetail({ periodId }: { periodId: string }) {
     course,
   });
 
-  // 3) mutation status
-  const updateStatus = useUpdatePeriodStatus(pid);
+  // Mutation
+  const updateStatus = useUpdatePeriodStatus(periodId);
+  const mutating =
+    updateStatus.isPending && updateStatus.variables
+      ? updateStatus.variables === "active"
+        ? "activate"
+        : "close"
+      : null;
 
-  // manejar id inválido
-  if (!Number.isFinite(pid) || pid <= 0) {
+  // Map errors to UiError (sin setState en render)
+  useEffect(() => {
+    const anyError = summaryQ.error || studentsQ.error;
+    if (anyError) setUiErr(toUiError(anyError));
+    else setUiErr(null);
+  }, [summaryQ.error, studentsQ.error]);
+
+  // ✅ Derivados SIEMPRE calculados (sin returns antes de useMemo)
+  const summary = summaryQ.data;
+  const rows = studentsQ.data?.rows ?? [];
+  const total = studentsQ.data?.total ?? 0;
+  const courses = studentsQ.data?.courses ?? [];
+
+  const totalPages = useMemo(() => {
+    return Math.max(1, Math.ceil(total / pageSize));
+  }, [total, pageSize]);
+
+  function onApplyFilters() {
+    setPage(1);
+  }
+
+  function goPage(next: number) {
+    const clamped = Math.min(Math.max(next, 1), totalPages);
+    setPage(clamped);
+  }
+
+  // ✅ A partir de aquí recién decides qué mostrar
+  if (!isValidId) {
     return (
       <StateCard
         backHref="/admin/periods"
@@ -79,34 +114,6 @@ export default function AdminPeriodDetail({ periodId }: { periodId: string }) {
         message="El ID del periodo no es válido."
       />
     );
-  }
-
-  // mapear errores a UiError (si usas toUiError)
-  const anyError = summaryQ.error || studentsQ.error;
-  if (anyError && !uiErr) {
-    // esto evita setState en render en loops; si quieres lo pasamos a useEffect
-    const mapped = toUiError(anyError);
-    // si tu toUiError puede decir "unauthorized", ideal que ya tengas 401 global en QueryClient
-    setUiErr(mapped);
-  }
-
-  const summary = summaryQ.data;
-  const rows = studentsQ.data?.rows ?? [];
-  const total = studentsQ.data?.total ?? 0;
-  const courses = studentsQ.data?.courses ?? [];
-
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(total / pageSize)),
-    [total, pageSize]
-  );
-
-  function onApplyFilters() {
-    setPage(1); // al aplicar, vuelve a página 1 (el queryKey cambia)
-  }
-
-  function goPage(next: number) {
-    const clamped = Math.min(Math.max(next, 1), totalPages);
-    setPage(clamped);
   }
 
   if (summaryQ.isLoading) {
@@ -137,7 +144,7 @@ export default function AdminPeriodDetail({ periodId }: { periodId: string }) {
       </Link>
 
       <PeriodHeader
-        pid={pid}
+        pid={parsedId}
         name={summary?.period?.name}
         status={summary?.period?.status}
         startAt={summary?.period?.startAt}
@@ -149,7 +156,7 @@ export default function AdminPeriodDetail({ periodId }: { periodId: string }) {
 
       <PeriodStatusActions
         status={summary?.period?.status}
-        mutating={updateStatus.isPending ? /* opcional */ "activate" : null}
+        mutating={mutating}
         onActivate={() => updateStatus.mutate("active")}
         onClose={() => updateStatus.mutate("closed")}
       />
@@ -157,13 +164,13 @@ export default function AdminPeriodDetail({ periodId }: { periodId: string }) {
       <ExportActions
         onOpenImport={() => setImportOpen(true)}
         exporting={exporting}
-        periodStatus={summary?.period.status}
+        periodStatus={summary?.period?.status}
         onExportCsv={async () => {
           try {
             setExporting("csv");
-            const periodName = summary?.period?.name ?? `periodo-${pid}`;
+            const periodName = summary?.period?.name ?? `periodo-${parsedId}`;
             await apiDownload(
-              `/admin/periods/${pid}/export/csv`,
+              `/admin/periods/${parsedId}/export/csv`,
               `reporte-${safeFileName(periodName)}.csv`
             );
           } catch (e: any) {
@@ -175,9 +182,9 @@ export default function AdminPeriodDetail({ periodId }: { periodId: string }) {
         onExportPdf={async () => {
           try {
             setExporting("pdf");
-            const periodName = summary?.period?.name ?? `periodo-${pid}`;
+            const periodName = summary?.period?.name ?? `periodo-${parsedId}`;
             await apiDownload(
-              `/admin/periods/${pid}/report/pdf`,
+              `/admin/periods/${parsedId}/report/pdf`,
               `reporte-${safeFileName(periodName)}.pdf`
             );
           } catch (e: any) {
@@ -197,7 +204,7 @@ export default function AdminPeriodDetail({ periodId }: { periodId: string }) {
 
       <StudentsFilters
         total={total}
-        loading={studentsQ.isFetching} // ojo: fetching mientras mantiene data previa
+        loading={studentsQ.isFetching}
         q={q}
         setQ={setQ}
         status={status}
@@ -230,9 +237,8 @@ export default function AdminPeriodDetail({ periodId }: { periodId: string }) {
       <ImportStudentsModal
         open={importOpen}
         onClose={() => setImportOpen(false)}
-        periodId={pid}
+        periodId={parsedId}
         onImported={() => {
-          // refresca summary y students (sin volver a implementar fetch)
           summaryQ.refetch();
           studentsQ.refetch();
         }}

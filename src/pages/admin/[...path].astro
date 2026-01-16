@@ -1,0 +1,9 @@
+---
+import AdminApp from "../../components/admin/AdminApp";
+import AdminShell from "../../layouts/AdminShell.astro";
+export const prerender = false;
+---
+
+<AdminShell>
+  <AdminApp client:only="react" />
+</AdminShell>
