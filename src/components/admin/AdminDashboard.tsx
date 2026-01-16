@@ -1,28 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { requireAuth } from "../../lib/guards";
-import { api } from "../../lib/api";
+import { useMemo } from "react";
+import { useAdminDashboard } from "../../features/admin/useAdminDashboard";
 import { formatDate } from "../../utils/utils";
-
-type DashboardResp = {
-  ok: boolean;
-  kpis: {
-    totalPeriods: number;
-    activePeriods: number;
-    totalStudents: number;
-    totalFinished: number;
-  };
-  periods: Array<{
-    id: number;
-    name: string;
-    status: "draft" | "active" | "closed";
-    startAt: string | null;
-    endAt: string | null;
-    createdAt: string;
-    studentsCount: number;
-    finishedCount: number;
-    completionPct: number;
-  }>;
-};
 
 function statusLabel(status: string) {
   const s = (status || "").toLowerCase();
@@ -41,25 +19,7 @@ function statusClasses(status: string) {
 }
 
 export default function AdminDashboard() {
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
-  const [data, setData] = useState<DashboardResp | null>(null);
-
-  useEffect(() => {
-    const ok = requireAuth("admin");
-    if (!ok) return;
-
-    (async () => {
-      try {
-        const resp = await api<DashboardResp>("/admin/dashboard");
-        setData(resp);
-      } catch (e: any) {
-        setErr(e.message);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  const { data, isLoading, error } = useAdminDashboard();
 
   const periods = data?.periods ?? [];
   const k = data?.kpis;
@@ -67,9 +27,9 @@ export default function AdminDashboard() {
   const headline = useMemo(() => {
     if (!k) return "";
     return `${k.activePeriods} activos · ${k.totalPeriods} total`;
-  }, [k]);
+  }, []);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="card">
         <p className="text-sm text-muted">Cargando dashboard…</p>
@@ -77,10 +37,12 @@ export default function AdminDashboard() {
     );
   }
 
-  if (err) {
+  if (error) {
     return (
       <div className="card border-red-200">
-        <p className="text-sm text-red-600">Error: {err}</p>
+        <p className="text-sm text-red-600">
+          Error: {(error as Error).message}
+        </p>
       </div>
     );
   }

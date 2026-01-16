@@ -2,6 +2,7 @@
 import "../styles/global.css";
 import AdminTopbar from "../components/admin/AdminTopbar";
 import { getActiveHref } from "../utils/utils";
+import QueryProvider from "../components/common/QueryProvider";
 
 const path = Astro.url.pathname;
 
@@ -56,7 +57,7 @@ const { title } = Astro.props;
                   <a
                     href={it.href}
                     class={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition
-        ${active ? "bg-primary text-white" : "text-slate-700 hover:bg-slate-50"}`}>
+                    ${active ? "bg-primary text-white" : "text-slate-700 hover:bg-slate-50"}`}>
                     {it.label}
                   </a>
                 );
